@@ -11,6 +11,7 @@ from matplotlib.patches import ConnectionPatch
 target = 'ANG'
 solvens = 'DMSO'
 
+
 class SingleEnergyDisplay:
     y_ranges = None
     states = {}
@@ -127,7 +128,9 @@ class SingleEnergyDisplay:
             text_va: Literal['center', 'bottom', 'top'] = 'bottom',
             text_ha: Literal['center', 'left', 'right'] = 'center',
             rotate_text: bool = True,
-            arrow_style: str = '-'
+            arrow_style: str = '-',
+
+            line_width: float = None
     ):
         if label1 not in self.energy_lines.keys():
             raise ValueError(f'Label {label1} is not used.')
@@ -150,7 +153,7 @@ class SingleEnergyDisplay:
 
             self.add_line(xy1, xy2, color=color, line_style=line_style, arrow_style=arrow_style,
                           text=text, text_offset=text_offset, text_color=text_color, text_ha=text_ha,
-                          text_size=text_size, text_va=text_va, rotate_text=rotate_text)
+                          text_size=text_size, text_va=text_va, rotate_text=rotate_text, line_width=line_width)
 
             return
 
@@ -164,7 +167,7 @@ class SingleEnergyDisplay:
 
         self.add_line(xy1, xy2, color=color, line_style=line_style, arrow_style=arrow_style,
                       text=text, text_offset=text_offset, text_color=text_color, text_ha=text_ha,
-                      text_size=text_size, text_va=text_va, rotate_text=rotate_text)
+                      text_size=text_size, text_va=text_va, rotate_text=rotate_text, line_width=line_width)
 
     def add_line(
             self,
@@ -181,12 +184,14 @@ class SingleEnergyDisplay:
             text_va: Literal['center', 'bottom', 'top'] = 'bottom',
             text_ha: Literal['center', 'left', 'right'] = 'center',
             rotate_text: bool = True,
-            arrow_style: str = '-'
+            arrow_style: str = '-',
+
+            line_width: float = None
     ):
         ax1 = self.__get_axis__(xy1[1])
         ax2 = self.__get_axis__(xy2[1])
         con = ConnectionPatch(xyA=xy1, xyB=xy2, coordsA=ax1.transData, coordsB=ax2.transData, color=color,
-                              linestyle=line_style, arrowstyle=arrow_style)
+                              linestyle=line_style, arrowstyle=arrow_style, linewidth=line_width)
 
         self.fig.add_artist(con)
 
@@ -233,7 +238,6 @@ class SingleEnergyDisplay:
         fig.add_artist(rect)
 
 
-
 class Geometry(TypedDict):
     name: str
     singlet: Tuple[float, float, float]  # GS, 1st excited state, 2nd excited state
@@ -256,8 +260,8 @@ def calculate_real_geometry(geometry: Geometry, ground_state: float) -> Geometry
     triplet = (to_eV(abs(geometry['triplet'][0] - ground_state)), to_eV(abs(geometry['triplet'][1] - ground_state)))
     return GeometryReal(singlet=singlet, triplet=triplet, name=geometry['name'])
 
-def plotit(geometries: List[GeometryReal]):
 
+def plotit(geometries: List[GeometryReal]):
     lower_max = max([x['singlet'][0] for x in geometries])
     upper_min = 0.9 * min(
         [x['singlet'][1] for x in geometries] +
@@ -307,8 +311,9 @@ def plotit(geometries: List[GeometryReal]):
                                  line_style='-',
                                  text=f'{data[0][:-1]} nm\n\n$f = {round(float(data[1]), 3)}$',
                                  text_va='center',
-                                 text_offset=(0, 0), # Change this to move the text (-20, 0) lowers text
-                                 arrow_style="-|>")
+                                 text_offset=(0, 0),  # Change this to move the text (-20, 0) lowers text
+                                 arrow_style="-|>",
+                                 line_width=2)
 
     except IndexError:
         pass
@@ -321,8 +326,9 @@ def plotit(geometries: List[GeometryReal]):
                                  line_style='-',
                                  text=f'{data[0][:-1]} nm\n\n$f = {round(float(data[1]), 3)}$',
                                  text_va='center',
-                                 text_offset=(0, 0), # Change this to move the text (-20, 0) lowers text
-                                 arrow_style="<|-")
+                                 text_offset=(0, 0),  # Change this to move the text (-20, 0) lowers text
+                                 arrow_style="<|-",
+                                 line_width=2)
     except IndexError:
         pass
 
@@ -340,10 +346,11 @@ def plotit(geometries: List[GeometryReal]):
                              text_ha='left',
                              text_offset=(10, -20),
                              text=f'$\\Delta E_{{ST}}= {val}$ eV',
-                             )
+                             line_width=2)
 
     display.finalize()
     plt.savefig('plot.png')
+
 
 def get_path():
     path = Path(__file__).parent / target
@@ -352,6 +359,7 @@ def get_path():
     else:
         path = path / "Solvens" / solvens
     return path
+
 
 def read_data_to_geometries() -> List[Geometry]:
     path = get_path()
@@ -406,6 +414,7 @@ def read_data_to_geometries() -> List[Geometry]:
 
     return geometries
 
+
 # Die Werte die am Pfeil stehen ...
 def get_wavelength_and_oscilator_st_for(state):
     path = get_path()
@@ -416,7 +425,8 @@ def get_wavelength_and_oscilator_st_for(state):
     try:
         return re.findall(r'2\s+\d+\w+\s+->\d+\w+\s+\d+.\d+\s+(\d+.\d*)\s+\d+.\d*\s+(\d+.\d*)', text)[0]
     except IndexError as error:
-        print(f"Could not find wavelength and oscillator strength in {path / state / 'DFTMRCI' / 'singlet.in_autoref.dmat.1a.prp'}")
+        print(
+            f"Could not find wavelength and oscillator strength in {path / state / 'DFTMRCI' / 'singlet.in_autoref.dmat.1a.prp'}")
         raise IndexError from error
 
 
@@ -435,4 +445,3 @@ if __name__ == '__main__':
     geometries = [calculate_real_geometry(x, _ground_state) for x in _raw_geometries]
 
     plotit(geometries)
-
